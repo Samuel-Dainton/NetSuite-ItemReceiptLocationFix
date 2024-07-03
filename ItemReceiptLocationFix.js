@@ -6,6 +6,7 @@
 define(['N/record', 'N/log', 'N/search'], function(record, log, search) {
 
     function beforeLoad(context) {
+
         // Check if the script is running before the record is loaded
         if (context.type !== context.UserEventType.CREATE) {
             return;
@@ -19,25 +20,29 @@ define(['N/record', 'N/log', 'N/search'], function(record, log, search) {
             return;
         }
 
-        // Retrieve the transfer order reference from the Item Receipt
-        var transferOrderId = newRecord.getValue({
+        // Retrieve the created from transaction type and ID
+        var createdFromType = newRecord.getValue({
+            fieldId: 'createdfromtype'
+        });
+
+        var createdFromId = newRecord.getValue({
             fieldId: 'createdfrom'
         });
 
-        // If there's no transfer order reference, exit the script
-        if (!transferOrderId) {
-            log.debug('No transfer order reference found, exiting script.');
+        // Check if the created from transaction is a Transfer Order
+        if (createdFromType !== 'SalesOrd') {
+            log.debug('Item Receipt created from a transaction other than Transfer Order, exiting script.');
             return;
         }
 
         // Load the Transfer Order record
         var transferOrder = record.load({
-            type: record.Type.TRANSFER_ORDER,
-            id: transferOrderId,
+            type: record.Type.TrnfrOrd,
+            id: createdFromId,
             isDynamic: false
         });
 
-        // Retrieve the from location from the Transfer Order
+        // Retrieve the to location from the Transfer Order
         var toLocationId = transferOrder.getValue({
             fieldId: 'transferlocation'
         });
@@ -57,3 +62,4 @@ define(['N/record', 'N/log', 'N/search'], function(record, log, search) {
     };
 
 });
+
