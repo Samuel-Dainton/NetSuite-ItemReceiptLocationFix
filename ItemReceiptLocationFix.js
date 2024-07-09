@@ -6,9 +6,10 @@
 define(['N/record', 'N/log', 'N/search'], function(record, log, search) {
 
     function beforeLoad(context) {
-
+        log.debug('Script Check');
         // Check if the script is running before the record is loaded
         if (context.type !== context.UserEventType.CREATE) {
+            log.debug('Event type is not Create');
             return;
         }
 
@@ -20,30 +21,46 @@ define(['N/record', 'N/log', 'N/search'], function(record, log, search) {
             return;
         }
 
-        // Retrieve the created from transaction type and ID
-        var createdFromType = newRecord.getValue({
-            fieldId: 'createdfromtype'
-        });
-
+        // Retrieve the created from transaction ID
         var createdFromId = newRecord.getValue({
             fieldId: 'createdfrom'
         });
 
-        // Check if the created from transaction is a Transfer Order
-        if (createdFromType !== 'SalesOrd') {
-            log.debug('Item Receipt created from a transaction other than Transfer Order, exiting script.');
+        if (!createdFromId) {
+            log.debug('No created from transaction found, exiting script.');
             return;
         }
 
-        // Load the Transfer Order record
-        var transferOrder = record.load({
-            type: record.Type.TrnfrOrd,
+        // Use a search to determine the type of the created from record
+        var transactionSearch = search.create({
+            type: search.Type.TRANSACTION,
+            filters: [
+                ['internalid', 'is', createdFromId]
+            ],
+            columns: ['type']
+        });
+
+        var transactionType;
+        transactionSearch.run().each(function(result) {
+            transactionType = result.getValue('type');
+            return false; // We only need the first result
+        });
+
+        // Check if the created from transaction is a Transfer Order
+        if (transactionType !== 'TrnfrOrd' / 'TRANSFER_ORDER') {
+            log.debug('Wrong Transaction Type', 'Item Receipt created from a transaction other than Transfer Order, exiting script. Actual type: ' + transactionType);
+            return;
+        }
+
+        // Load the created from record
+        var createdFromRecord = record.load({
+            type: record.Type.TRANSFER_ORDER,
             id: createdFromId,
             isDynamic: false
         });
 
         // Retrieve the to location from the Transfer Order
-        var toLocationId = transferOrder.getValue({
+        var toLocationId = createdFromRecord.getValue({
             fieldId: 'transferlocation'
         });
 
@@ -61,5 +78,6 @@ define(['N/record', 'N/log', 'N/search'], function(record, log, search) {
         beforeLoad: beforeLoad
     };
 
+});
 });
 
